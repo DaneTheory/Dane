@@ -1,0 +1,54 @@
+{
+  "name": "Dane",
+  "version": "1.0.0",
+  "description": "Cross platform app built atop Node, React, Redux, Electron, ESNext, and all the other tools the cool kids use nowadays. Really an excuse to redo my own site, albiet a highly over engineered use case. FullStack.",
+  "main": "src/index.js",
+  "author": {
+    "name": "Branden Dane",
+    "email": "Branden@DaneTheory.com",
+    "url": "https://DaneTheory.com"
+  },
+  "contributors": [],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DaneTheory/BrandenDane.git"
+  },
+  "bugs": "https://github.com/DaneTheory/BrandenDane/issues",
+  "homepage": "https://DaneTheory.com",
+  "license": "MIT",
+  "engines": {
+    "node": ">= 11.0.0",
+    "npm": ">= 6.0.0",
+    "yarn": ">= 1.0.0"
+  },
+  "keywords": [
+    "DaneTheory",
+    "Branden Dane",
+    "Dane",
+    "Branden",
+    "bdane",
+    "node",
+    "es6",
+    "react",
+    "cross platform",
+    "cross-platform",
+    "animate",
+    "javascript",
+    "fullstack"
+  ],
+  "private": false,
+  "scripts": {
+    "start": "NODE_ENV=production micro",
+    "dev": "NODE_ENV=development micro-dev",
+    "inspect": "NODE_ENV=development node --inspect node_modules/.bin/micro-dev"
+  },
+  "devDependencies": {
+    "micro-dev": "^3.0.0"
+  },
+  "dependencies": {
+    "micro": "^9.3.3",
+    "next": "^8.0.4",
+    "react": "^16.8.6",
+    "react-dom": "^16.8.6"
+  }
+}
