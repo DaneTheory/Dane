@@ -1,0 +1,17 @@
+{
+  "name": "create-next-example-app",
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development next",
+    "start": "cross-env NODE_ENV=production next start",
+    "build": "next build",
+    "prod": "yarn build && cross-env NODE_ENV=production next start -p 8080"
+  },
+  "dependencies": {
+    "next": "^8.0.4",
+    "react": "^16.8.6",
+    "react-dom": "^16.8.6"
+  },
+  "devDependencies": {
+    "cross-env": "^5.2.0"
+  }
+}
