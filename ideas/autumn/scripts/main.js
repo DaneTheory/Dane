@@ -1,333 +1,318 @@
-/*
- * List of 1-letter variables
- *
- * a context
- * b body
- * c element
- * h canvas height
- * l function parameter
- * p   "
- * r   "
- * s local temporary variable
- * t time/counter
- * u local temporary variable
- * w canvas width
- * y function parameter
- *
- * B branches array
- * G generate branch (1st) / render loop (2nd)
- * L leaves array
- */
+// Initialize first
+const CANVAS_NODE = document.createElement('canvas')
+CANVAS_NODE.id = 'scene'
+CANVAS_NODE.classList.add('autumn')
+document.body.prepend(CANVAS_NODE)
+
+const W_WIDTH = window.innerWidth
+const W_HEIGHT = window.innerHeight
+
+const CANVAS_DOM = document.getElementById('scene')
 
 
-const cnvs = document.getElementById('c')
-const ctx = cnvs.getContext('2d')
-const W_WIDTH = cnvs.width = window.innerWidth
-const W_HEIGHT = cnvs.height = window.innerHeight
 
+// CONSTANTS
+let C_WIDTH = CANVAS_DOM.width = W_WIDTH
+let C_HEIGHT = CANVAS_DOM.height = W_HEIGHT
 
-// const initialTreeRenderConfig = {
-//   angle: 9,
-//   height: W_HEIGHT - 80,
-//   radius: 0,
-//   depth: 1,
-//   spacing: 0,
-// }
+const C_CONTEXT = CANVAS_DOM.getContext('2d', { alpha: false })
+// C_CONTEXT.globalAlpha = 1                                   // ALT: 0.0 => 1
+C_CONTEXT.globalCompositeOperation = 'source-over'          // ALT: 'destination-over'
+C_CONTEXT.imageSmoothingEnabled = true                      // ALT: false
+C_CONTEXT.imageSmoothingQuality = 'high'                    // ALT: 'low', 'medium'
+C_CONTEXT.shadowBlur = 4
+C_CONTEXT.shadowColor = 'rgba(30, 30, 30, 0.4)'
+C_CONTEXT.shadowOffsetX = 1
+C_CONTEXT.shadowOffsetY = 2
 
-/*
- * Leaves array [703], with the inital value of an island. This data takes up
- * more space than I want, but it's integral to the illusion.
- */
-const LEAVES = [
-  [
-    1,
-    W_HEIGHT - 115,
-    1,       //X, Y, Z
-    -150,
-    0,     //vertex1 X, vertex1 Y
-    0,
-    -15,      //vertex1 X, vertex1 Y
-    150,
-    0,      //vertex1 X, vertex1 Y
-    60, 9, 0
-  ]
-]; // R, G, B
+let timeStartOffset = 0
+let timeDilationOffset = 0.002
+let islandConfig = {
+  iDunno:               0,
+  iHeight:              C_HEIGHT - 118,
+  iZed:                 0,
+  iOffsetRLen:          -150,
+  iOffsetZedBackRLen:   0,
+  iOffsetZedFrontLen:   0,
+  iOffsetTip:           -10,
+  iOffsetLLen:          150,
+  iOffsetZedBackLLen:   0,
+  iRed:                 0,
+  iGreen:               0,
+  iBlue:                0
+}
+let customText = '▲'
+let angleDisplacement = 1
+let yAxisOffset = 99
+let radiusOffset = 10
+let depthOffset = 1
+let spacingOffset = 0.05
+let globalTreeOffsetX = 340
 
+const TIME_START = timeStartOffset
+const TIME_DILATION = timeDilationOffset
+const SCENE_LEAVES = [
+  [...Object.values(islandConfig)]
+]
+const SCENE_BRANCHES = []
+const SCENE_TEXT = customText
+const TREE_ANGLE_DISPLACEMENT = angleDisplacement
+const TREE_Y_AXIS_PLACEMENT = C_HEIGHT - yAxisOffset
+const TREE_RADIUS_DISPLACEMENT = radiusOffset
+const TREE_DEPTH_DISPLACEMENT = depthOffset
+const TREE_SPACING_DISPLACEMENT = spacingOffset
+const GLOBAL_TREE_OFFSET_X = globalTreeOffsetX
 
-let TIME = 0  // wait a moment before shedding leaves
-let BRANCHES = []  // branches [242]
+const CONSTANTS = {
+  cWidth:      C_WIDTH,
+  cHeight:     C_HEIGHT,
+  cContext:    C_CONTEXT,
+  tStart:      TIME_START,
+  tDilation:   TIME_DILATION,
+  sLeaves:     SCENE_LEAVES,
+  sBranches:   SCENE_BRANCHES,
+  sText:       SCENE_TEXT,
+  treeA:       TREE_ANGLE_DISPLACEMENT,
+  treeY:       TREE_Y_AXIS_PLACEMENT,
+  treeR:       TREE_RADIUS_DISPLACEMENT,
+  treeD:       TREE_DEPTH_DISPLACEMENT,
+  treeS:       TREE_SPACING_DISPLACEMENT,
+  gTreeSetX:   GLOBAL_TREE_OFFSET_X
+}
 
-let offsetX
-let sheddingSpeed
+// ELEMENTS FOR RENDER
 
-const RenderSky = (context, time, width, height) => {
-  context.fillStyle = context.createRadialGradient(720, time * 40 - 99, 1, 460, 460, 900)
-  context.fillStyle.addColorStop(0.06, '#fda')
-  context.fillStyle.addColorStop(0.07, '#fc4')
-  context.fillStyle.addColorStop(0.2, '#e65')
+// Sky
+const RenderSky = (width, height, context, timer) => {
+  let x0,y0,r0,x1,y1,r1
+  timer = timer/1.5
+  x0 = timer * 400 + 250
+  y0 = -timer * 360 + 950
+  r0 = timer / 1.05 + 80
+  x1 = timer * 5 + 800
+  y1 = 600 - timer * 100
+  r1 = 800 + timer * 600
+  context.fillStyle = context.createRadialGradient(x0, y0, r0, x1, y1, r1)
+  context.fillStyle.addColorStop(0.07, '#fda')
+  context.fillStyle.addColorStop(0.1, '#fc4')
+  context.fillStyle.addColorStop(0.4, '#e65')
   context.fillStyle.addColorStop(1, '#326')
   context.fillRect(0, 0, width, height)
 }
 
-const RenderLeavesBack = (space, leavesArr, time, currAngle) => {
+// Leaves - (back)
+const RenderLeavesBack = (context, timer, leaves, globalXOffset) => {
+  let offsetX
+  let sheddingSpeed
+
   for(space = 703; space--;) {
-    Math.sin(leavesArr[space][0] + time) < 0 && (  //depth test
+    Math.sin(leaves[space][0] + timer) < 0 && (  //depth test
         // Original position
-        currAngle = leavesArr[space][1],
-        offsetX = Math.cos(leavesArr[space][0] + time) * leavesArr[space][2] + 275,  //offsetx
+        angle = leaves[space][1],
+        offsetX = Math.cos(leaves[space][0] + timer) * leaves[space][2] + globalXOffset,  //offsetx
 
         // Leaf shedding (xspeed, difference/wait)
         // if we get to choose numbers, 99 is better than 100
-        sheddingSpeed = (time * 9 - space % 300) * 99,
+        sheddingSpeed = (timer * 9 - space % 320) * 105,
 
         // Leaf rotation
         offsetX += sheddingSpeed *= (sheddingSpeed > 0) * !!space,
-        currAngle += sheddingSpeed * Math.sin(sheddingSpeed / 99) / 9,
+        angle += sheddingSpeed * Math.sin(sheddingSpeed / 105) / 9,
 
-        ctx.fillStyle = 'rgba('+~~leavesArr[space][9]+','+~~leavesArr[space][10]+','+~~leavesArr[space][11]+',0.8)',
-        ctx.beginPath(),
-        ctx.moveTo(leavesArr[space][3] + offsetX, leavesArr[space][4] * Math.cos(sheddingSpeed/=14) + currAngle),
-        ctx.lineTo(leavesArr[space][5] + offsetX, leavesArr[space][6] * Math.cos(sheddingSpeed/=14) + currAngle),
-        ctx.lineTo(leavesArr[space][7] + offsetX, leavesArr[space][8] * Math.cos(sheddingSpeed/=14) + currAngle),
-        ctx.closePath(),
-        ctx.fill()
+        context.save(),
+        context.fillStyle = `rgba(${+~~leaves[space][9]},${+~~leaves[space][10]},${+~~leaves[space][11]}, 0.75)`,
+        context.beginPath(),
+        context.moveTo(leaves[space][3] + offsetX, leaves[space][4] * Math.cos(sheddingSpeed/=14) + angle),
+        context.lineTo(leaves[space][5] + offsetX, leaves[space][6] * Math.cos(sheddingSpeed/=14) + angle),
+        context.lineTo(leaves[space][7] + offsetX, leaves[space][8] * Math.cos(sheddingSpeed/=14) + angle),
+        context.closePath(),
+        context.fill(),
+        context.restore()
     )
   }
 }
 
-const RenderLeavesFront = (space, leavesArr, time, currAngle) => {
+// Leaves - (front)
+const RenderLeavesFront = (context, timer, leaves, globalXOffset) => {
+  let offsetX
+  let sheddingSpeed
+
   for(space = 703; space--;) {
-    Math.sin(leavesArr[space][0] + time) > 0 && (  //depth test
+
+    Math.sin(leaves[space][0] + timer) > 0 && (  //depth test
         // Original position
-        currAngle = leavesArr[space][1],
-        offsetX = Math.cos(leavesArr[space][0] + time) * leavesArr[space][2] + 275,  //offsetx
+        angle = leaves[space][1],
+        offsetX = Math.cos(leaves[space][0] + timer) * leaves[space][2] + globalXOffset,  //offsetx
 
         // Leaf shedding (xspeed, difference/wait)
         // if we get to choose numbers, 99 is better than 100
-        sheddingSpeed = (time * 9 - space % 300) * 99,
+        sheddingSpeed = (timer * 6 - space % 280) * 80,
 
         // Leaf rotation
         offsetX += sheddingSpeed *= (sheddingSpeed > 0) * !!space,
-        currAngle += sheddingSpeed * Math.sin(sheddingSpeed / 99) / 9,
+        angle += sheddingSpeed * Math.sin(sheddingSpeed / 80) / 6,
 
-        ctx.fillStyle = 'rgba('+~~leavesArr[space][9]+','+~~leavesArr[space][10]+','+~~leavesArr[space][11]+',0.8)',
-        ctx.beginPath(),
-        ctx.moveTo(leavesArr[space][3] + offsetX, leavesArr[space][4] * Math.cos(sheddingSpeed/=14) + currAngle),
-        ctx.lineTo(leavesArr[space][5] + offsetX, leavesArr[space][6] * Math.cos(sheddingSpeed/=14) + currAngle),
-        ctx.lineTo(leavesArr[space][7] + offsetX, leavesArr[space][8] * Math.cos(sheddingSpeed/=14) + currAngle),
-        ctx.closePath(),
-        ctx.fill()
+        context.save(),
+        context.fillStyle = `rgba(${+~~leaves[space][9]},${+~~leaves[space][10]},${+~~leaves[space][11]}, 0.65)`,
+        context.beginPath(),
+        context.moveTo(leaves[space][3] + offsetX, leaves[space][4] * Math.cos(sheddingSpeed/=14) + angle),
+        context.lineTo(leaves[space][5] + offsetX, leaves[space][6] * Math.cos(sheddingSpeed/=14) + angle),
+        context.lineTo(leaves[space][7] + offsetX, leaves[space][8] * Math.cos(sheddingSpeed/=14) + angle),
+        context.closePath(),
+        context.fill(),
+        context.restore()
     )
   }
+
 }
 
-const RenderTree = (space, context, branchesArr, time) => {
+// Tree
+const RenderTree = (context, timer, branches, globalXOffset) => {
   for(space = 242; space--;) {
     if(space % 2) {
-      context.lineWidth = branchesArr[context.beginPath(), space][
-        context.moveTo(Math.cos(branchesArr[space][0] + time) * branchesArr[space][2] + 275,
-        branchesArr[space][1]),
+      context.lineWidth = branches[context.beginPath(), space][
+        context.moveTo(Math.cos(branches[space][0] + timer) * branches[space][2] + globalXOffset,
+        branches[space][1]),
         3
       ]
     }
     else {
-      context.lineTo(Math.cos(branchesArr[space][0] + time) * branchesArr[space][2] + 275, branchesArr[space][1])
+      context.save()
+      context.lineTo(Math.cos(branches[space][0] + timer) * branches[space][2] + globalXOffset, branches[space][1])
       context.stroke()
+      context.restore()
     }
   }
 }
 
-const RenderText = (context, txt, hght) => {
-  context.fillStyle = '#e65'
-  context.font='120px x'
-  context.fillText(txt, 640, hght - 150)
+// Icon
+const RenderIcon = (height, context, text) => {
+  context.save()
+  context.fillStyle = 'rgba(0,0,0,0.9)'
+  context.font='320px x'
+  context.fillText(text, 603, height - 140)
+  context.restore()
 }
 
-const RenderWater = (variableHeight, windowHeight, windowWidth, time) => {
+// Text
+const RenderText = (height, context, text) => {
+  context.save()
+  context.fillStyle = 'rgba(235,235,235,1)'
+  context.font='56px x'
+  context.fillText(text, 400, height - 200)
+  context.restore()
+}
+
+// Water - (with reflection)
+const RenderWater = (width, height, context, timer) => {
   for(variableHeight = 120; variableHeight--;) {
     // getImageData
     // => 340 = elementheight - waterheight 900 = element.width
-    ctx.putImageData(
-      ctx.getImageData(0, windowHeight - 120 - variableHeight + ~~(Math.sin(time * 9 + variableHeight / 8) * variableHeight / 5), windowWidth, 1 ),
-      // putImageData
-      ~~(Math.sin(time * 9 + variableHeight / 4) * variableHeight / 9), windowHeight - 120 + variableHeight
+    context.save()
+    context.putImageData(
+      context.getImageData(0, height - 120 - variableHeight + ~~(Math.sin(timer * 9 + variableHeight / 8) * variableHeight / 5), width, 1 ),
+      ~~(Math.sin(timer * 9 + variableHeight / 4) * variableHeight / 9), height - 120 + variableHeight
     )
+    context.restore()
   }
-  ctx.fillStyle = 'rgba(0,0,99,0.1)'
-  ctx.fillRect(0, windowHeight - 120, windowWidth, 120)  // magic numbers : element.height * 0.75, element.width, element.height * 0.25
+  context.save()
+  context.fillStyle = 'rgba(0,0,99,0.3)'
+  context.fillRect(0, height - 120, width, 120)  // magic numbers : element.height * 0.75, element.width, element.height * 0.25
+  context.restore()
 }
 
 
-/*
- * Create Tree (saving everything as angle/height/radius instead of X/Y/Z allows
- * us to save a trig operator every time we calculate the projection).
- */
 
-// class BaseTree {
-//   constructor(angle, height, radius, depth, spacing) {
-//     this.angle = angle
-//     this.height = height
-//     this.radius = radius
-//     this.depth = depth
-//     this.spacing = spacing
-//
-//     this.counter = 2
-//     this.leavesDepth = 3
-//     this.branchesDepth = 6
-//
-//     this.leavesCondition = this.counter * (depth > this.leavesDepth)
-//     this.branchesCondition = depth > this.branchesDepth
-//
-//     this.depthModifier = depth + 1
-//     this.spacingModifier = spacing * 2
-//   }
-// }
-//
-// class Tree extends BaseTree {
-//   constructor() {
-//     super(angle, height, radius, depth, spacing)
-//
-//     // let {
-//     //   // angle,
-//     //   // height,
-//     //   // radius,
-//     //   depth,
-//     //   spacing
-//     // } = props
-//
-//     // this.state = {...props}
-//
-//     // console.log(props);
-//
-//     // this.angle = angle
-//     // this.height = height
-//     // this.radius = radius
-//     // this.depth = depth
-//     // this.spacing = spacing
-//
-//     // this.counter = 2
-//     // this.leavesDepth = 3
-//     // this.branchesDepth = 6
-//     //
-//     // this.leavesCondition = this.counter * (depth > this.leavesDepth)
-//     // this.branchesCondition = depth > this.branchesDepth
-//     //
-//     // this.depthModifier = depth + 1
-//     // this.spacingModifier = spacing * 2
-//
-//     // console.log(this)
-//
-//     // this.hello = 'hello world'
-//   }
-//
-//   _createLeaves() {
-//     while(this.leavesCondition) {
-//       LEAVES.push([
-//         this.angle + Math.random() / 9,
-//         this.height + Math.random() * 30 - 15,
-//         this.radius + Math.random() * 30 - 15,
-//         Math.random() * 40 - 20, Math.random() * 40 - 20,
-//         Math.random() * 40 - 20, Math.random() * 40 - 20,
-//         Math.random() * 40 - 20, Math.random() * 40 - 20,
-//         Math.random() * 40 * 5 + 40, Math.random() * 40,
-//         20
-//       ])
-//       this.counter--
-//     }
-//   }
-//
-//   _createBranches() {
-//     if(this.branchesCondition) {
-//       for(BRANCHES.push([
-//         this.angle,
-//         this.height,
-//         this.radius
-//       ], [
-//         this.angle += Math.random() * 2 - 1 + (this.depth == 2) * this.spacing,
-//         this.height -=  Math.random() * 60 + 20 - this.radius / 5,
-//         this.radius +=  Math.random() * 25 * this.spacing - 5, 12 - this.depth * 2
-//       ]),
-//       this.spacing = 3; this.spacing--;) {
-//         // let depthModifier = this.depth + 1
-//         // let spacingModifier = this.spacing * 2
-//         // GenerateTree(this.angle, this.height, this.radius, depthModifier, spacingModifier)
-//         this.create()
-//       }
-//     }
-//   }
-//
-//   create() {
-//     this._createLeaves()
-//     this._createBranches()
-//   }
-// }
 
-// const tree = new Tree({...initialTreeRenderConfig})
+const createInitialLeaves = (angle, height, radius, leaves) => {
+  let intialLeaves = [
+    angle + Math.random() / 9,
+    height + Math.random() * 30 - 15,
+    radius + Math.random() * 30 - 15,
+    Math.random() * 40 - 20, Math.random() * 40 - 20,
+    Math.random() * 40 - 20, Math.random() * 40 - 20,
+    Math.random() * 40 - 20, Math.random() * 40 - 20,
+    Math.random() * 40 * 5 + 40, Math.random() * 40,
+    20
+  ]
+  leaves.push(intialLeaves)
+}
 
-// let {
-//   angle,
-//   height,
-//   radius,
-//   depth,
-//   spacing
-// } = initialTreeRenderConfig
-
-// const tree = new Tree(angle, height, radius, depth, spacing)
-//
-// console.log(tree);
-
-const GenerateTree = (angle, height, radius, depth, spacing) => {
+const DefineInitialSceneScope = (angle, height, radius, depth, space, leaves, branches) => {
   let counter = 2
   let leavesDepth = depth > 3
   let branchesDepth = depth < 6
-  let depthModifier = depth + 1
 
   while(counter * leavesDepth) {
-    LEAVES.push([
-      angle + Math.random() / 9,
-      height + Math.random() * 30 - 15,
-      radius + Math.random() * 30 - 15,
-      Math.random() * 40 - 20, Math.random() * 40 - 20,
-      Math.random() * 40 - 20, Math.random() * 40 - 20,
-      Math.random() * 40 - 20, Math.random() * 40 - 20,
-      Math.random() * 40 * 5 + 40, Math.random() * 40,
-      20
-    ])
+    createInitialLeaves(angle, height, radius, leaves)
     counter--
   }
 
-  if(branchesDepth) {
-    for(BRANCHES.push([
-      angle,
-      height,
-      radius
-    ], [
-      angle += Math.random() * 2 - 1 + (depth == 2) * spacing,
-      height -=  Math.random() * 60 + 20 - radius / 5,
-      radius +=  Math.random() * 25 * spacing - 5, 12 - depth * 2
-    ]),
-    spacing = 3; spacing--;) {
-      GenerateTree(angle, height, radius, depth + 1, spacing * 2)
-    }
+  if(depth < 6) {
+    let initialBranch = [angle, height, radius]
+    let newBranch = [
+      angle += Math.random() * 2 - 1 + (depth == 2) * space,
+      height -=  Math.random() * 40 + 20 - radius / 10,
+      radius +=  Math.random() * 20 * space - 5,
+      8 - depth * 1.1
+    ]
+    for(branches.push(initialBranch, newBranch), space = 3; space--;) DefineInitialSceneScope(angle, height, radius, depth + 1, space * 2, leaves, branches)
   }
-
 }
 
-GenerateTree(9, W_HEIGHT - 80, 0, 1, 0)
+const RenderScene = (width, height, context, timer, leaves, branches, text, globalXOffset) => {
+  context.save()
+  RenderSky(width, height, context, timer)    // Render sky
+  RenderIcon(height, context, text)           // Render text
+  RenderTree(context, timer, branches, globalXOffset)        // Render tree
+  RenderLeavesBack(context, timer, leaves, globalXOffset)    // Rendering leaves behind the tree
+  RenderText(height, context, 'BRANDEN DANE')
+  RenderLeavesFront(context, timer, leaves, globalXOffset)   // Rendering leaves in front of the tree
+  RenderWater(width, height, context, timer)  // Render water with reflection
+  context.restore()
+}
 
-setInterval((angle, height, radius, depth, spacing) => {
-  // Time dilation
-  TIME += 0.003
-  // Render sky
-  RenderSky(ctx, TIME, W_WIDTH, W_HEIGHT)
-  // Rendering leaves behind the tree
-  RenderLeavesBack(spacing, LEAVES, TIME, angle)
-  // Render tree
-  RenderTree(spacing, ctx, BRANCHES, TIME)
-  // Rendering leaves in front of the tree
-  RenderLeavesFront(spacing, LEAVES, TIME, angle)
-  // Render text
-  RenderText(ctx, '❦', W_HEIGHT)
-  //Render water with reflection
-  RenderWater(height, W_HEIGHT, W_WIDTH, TIME)
-}, 50)
+
+let startTime
+const SceneTimer = timeDilation => {
+  startTime += timeDilation
+  return startTime
+}
+
+const InitScene = (canvasWidth, canvasHeight, canvasContext, timeStart, timeDilation, leaves, branches, sceneText, treeAngleDisplacement, treeYAxisPlacement, treeRadiusDisplacement, treeDepthDisplacement, treeSpacingDisplacement, globalTreeOffsetX) =>  {
+  canvasContext.clearRect(0, 0, canvasWidth, canvasHeight)
+  let lastTimestamp = 0
+  let maxFPS = 60
+  let timestep = 1000/maxFPS
+  // Sets initial scene render settings for use during scene animation
+  DefineInitialSceneScope(treeAngleDisplacement, treeYAxisPlacement, treeRadiusDisplacement, treeDepthDisplacement, treeSpacingDisplacement, leaves, branches)
+  startTime = timeStart
+  const AnimateScene = (timestamp) => {
+    requestAnimationFrame(AnimateScene)
+    if(timestamp - lastTimestamp < timestep) return
+    lastTimestamp = timestamp
+    let timer = SceneTimer(timeDilation)
+    RenderScene(canvasWidth, canvasHeight, canvasContext, timer, leaves, branches, sceneText, globalTreeOffsetX)
+  }
+  requestAnimationFrame(AnimateScene)
+}
+
+
+const {
+  cWidth,
+  cHeight,
+  cContext,
+  tStart,
+  tDilation,
+  sLeaves,
+  sBranches,
+  sText,
+  treeA,
+  treeY,
+  treeR,
+  treeD,
+  treeS,
+  gTreeSetX
+} = CONSTANTS
+
+InitScene(cWidth, cHeight, cContext, tStart, tDilation, sLeaves, sBranches, sText, treeA, treeY, treeR, treeD, treeS, gTreeSetX)  // Initialize and run scene
