@@ -46,7 +46,7 @@
     "micro-dev": "^3.0.0"
   },
   "dependencies": {
-    "micro": "^9.3.3",
+    "micro": "^9.3.4",
     "next": "^8.0.4",
     "react": "^16.8.6",
     "react-dom": "^16.8.6"
